@@ -1,0 +1,82 @@
+A) Descriptive analysis
+
+   I used Hive on Cloudera Hadoop CDH 5 for this part.
+
+1. The data files (except for StateReadMe.pdf) are comma-delimited cvs/text files (with a TXT extension).
+   The data files are also collated by state.
+
+   One distortion of the data is pointed out in StateReadMe.pdf. For privacy reasons, the names that are used
+   fewer than 5 times per state, year, and gender are not included in the files. This means the total count of all names
+   is less than the total count of these names across the United States. So the answers to 2, 3, 4, and 5 may not be actually
+   correct even though they are correct from the data given.
+
+   Another distortion is the files are in ASCII format. So non-English alphabets/characters such as accented characters 
+   are not included. (Using Unicode can address this.)
+
+   Also names longer than 15 characters are not represented.
+
+2. For part 2, we load all the TXT data (in '/home/cloudera/Documents/CapitalOne/', after removing StateReadMe.pdf) 
+   into a Hive table [babynames] (Ref: http://wise.ajou.ac.kr/mata/load-csv-file-to-hive-hadoop/)
+
+    hive> CREATE TABLE babynames (state STRING, sex STRING, year INT, name STRING, freq INT) \
+          ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS TEXTFILE;
+    hive> LOAD DATA LOCAL INPATH '/home/cloudera/Documents/CapitalOne/' INTO TABLE babynames
+   
+   We can then query for the most popular name of all time:
+
+    hive> SELECT name, SUM(freq) AS cnt FROM babynames GROUP BY name ORDER BY cnt DESC LIMIT 10;
+
+  ANSWER: This shows that the most popular name of either gender is "James", which has been used 4957166 times.
+
+3. For part 3, we first create two views [g] and [b] that contains the total number of each girl/boy's name 
+   across all states in each given year. 
+
+    hive> CREATE VIEW g AS SELECT name, year, SUM(freq) AS freq FROM babynames WHERE sex='F' GROUP BY name, year;
+    hive> CREATE VIEW b AS SELECT name, year, SUM(freq) AS freq FROM babynames WHERE sex='M' GROUP BY name, year;
+
+   Then, for the years 2013 and 1945, we look for the names whose difference in count between boys and girls are the least, 
+   and if there are multiple minimums, we sort them by the total count of the names in descending order
+
+    hive> SELECT g.name, ABS(b.freq-g.freq) AS offset, b.freq+g.freq AS total FROM g INNER JOIN b ON \
+          g.name=b.name AND g.year=b.year WHERE g.year=2013 ORDER BY offset ASC, total DESC LIMIT 10
+    hive> SELECT g.name, ABS(b.freq-g.freq) AS offset, b.freq+g.freq AS total FROM g INNER JOIN b ON \
+          g.name=b.name AND g.year=b.year WHERE g.year=1945 ORDER BY offset ASC, total DESC LIMIT 10
+
+   ANSWER: The most gender ambiguous name in 2013 is "Nikita", which is used a total of 94 times for 47 boys and 47 girls.
+           The most gender ambiguous name in 1945 is "Maxie", which is used a total of 38 times, for 19 boys and 19 girls.
+           (Runner up for 1945: "Artie", used a total of 45 times, 22 times for boys and 23 times for girls.) 
+
+4. For part 4, we use the following formula to assess percentage change in popularity of a given name since 1980:
+
+   ([total occurrence for years > 1980] - [total occurrences for years <= 1980])/[total occurrences for years <= 1980]
+
+   We also need to check for names that are never used on or before 1980, but are used after 1980 and vice versa.
+
+   We implement this in Hive as follows:
+
+    hive> CREATE VIEW tally AS SELECT name, year, SUM(freq) AS freq FROM babynames GROUP BY name, year; 
+    hive> SELECT t.name, SUM(t.freq) AS cnt FROM tally t WHERE t.year>1980 AND t.name NOT IN (SELECT s.name FROM
+          tally s WHERE s.year<=1980) GROUP by t.name ORDER BY cnt DESC limit 10;
+    hive> SELECT t.name, SUM(t.freq) AS cnt FROM tally t WHERE t.year<=1980 AND t.name NOT IN (SELECT s.name FROM
+          tally s WHERE s.year>1980) GROUP by t.name ORDER BY cnt DESC limit 10;
+    hive> CREATE TABLE pop_perc AS SELECT s.name, (t.cnt-s.cnt)/s.cnt AS ratio FROM (SELECT name, SUM(freq) AS cnt 
+          FROM tally WHERE year>1980 GROUP BY name) t INNER JOIN (SELECT name, SUM(freq) AS cnt FROM tally WHERE year<=1980
+          GROUP BY name) s ON t.name=s.name;
+    hive> SELECT * FROM pop_perc ORDER BY ratio DESC LIMIT 10;
+    hive> SELECT * FROM pop_perc ORDER BY ratio ASC LIMIT 10;
+
+   ANSWER: There are 15409 names used after 1980 that do not occur on or before 1980. Out of these, "Jayden" has the highest
+           count at 188064. The other way around, we have 5989 names that are used on or before 1980 but not since. Of these,
+           "Gertrude" is the most popular and is is used 119827 times.
+
+           Discounting these names that are never used prior to 1980, the name that has the largest percentage increase in 
+           popularity since 1980 is "Makayla", which has increased by 1573866.6667%, from 6 names on or before 1980 to 94438 
+           names after 1980.
+
+           The name that has the largest percentage decrease in popularity since 1980 is "Blanche", which has decreased by
+           approximately 99.98186%, from 55130 names on or before 1980 to 10 names after 1980.
+   
+5. The question here is a bit ambiguous and lends to interpretation. I assume it is referring to the names that either started
+   or stopped getting used around 1980? In that case, I have already alluded to this in the answer to question 4. There are
+   15409 names that do not appear until after 1980, and the most popular of these is "Jayden". The other way around, there
+   are 5989 names that have not been used after 1980, and the most popular of these is "Gertrude", which is used 119827 times. 

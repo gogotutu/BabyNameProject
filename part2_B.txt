@@ -1,0 +1,24 @@
+B) Onward to Insight! 
+
+1. Assess birth rate trends: We can estimate the number of newborns per state per year. This is done in Hive and 
+   outputted into a csv file, Birth_Trends.csv.
+
+   I then used Python to plot a line graph of the birth rates of New York, California, Pennsylvania, Florida, and
+   Massachusetts from 1910 till 2014. The code for creating the plots is in plotting.py. The plot is in BirthRate.png.
+
+2. The website Behind the Name (http://www.behindthename.com) has information on the origins of names around the world
+   I wrote a simple webscraper using BeautifulSoup to extract the origins of each name and writes the data out to a
+   file NameOrigins.csv for further processing. The webscraper is implemented in names_scraper.py.
+
+   I then loaded the output data NameOrigins.txt into Hive and created a table consisting of each state (plus DC), each 
+   year since 1910, and the total number of newborn with names of a given origin that registered for SSN in that state
+   during that year. We may be able to glean some ancestral connection and religious affiliation within each state, 
+   immigration patterns across states, and other denominational information through this study. The table is given in file
+   Origins_By_State.csv.
+
+   I then loaded the data into Python and select a subset of the data, namely those for the state of California 
+   between 2010 and 2014, with a origin count of at least 8,000. I plotted a bar chart to illustrate the portion of
+   the name origins over the period 2010 and 2014, it's in CA_Origins.png. 
+
+   Some other ideas along these lines: Using the etymological and historical of the names available on the site, we can
+   create a recommender system for baby names, we may also be able to detect some fundamental cultural shifts.
